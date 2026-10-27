@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RODA PENGGUNA BIJAK: AR HAND GESTURE CHALLENGE</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <!-- MediaPipe Hands CDN scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #030712;
+            color: #f3f4f6;
+            overflow-x: hidden;
+        }
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        .font-rajdhani { font-family: 'Rajdhani', sans-serif; }
+        
+        /* Neon Glow Effects */
+        .neon-text-blue {
+            text-shadow: 0 0 8px rgba(59, 130, 246, 0.8), 0 0 20px rgba(59, 130, 246, 0.5), 0 0 30px rgba(14, 165, 233, 0.8);
+        }
+        .neon-text-pink {
+            text-shadow: 0 0 8px rgba(236, 72, 153, 0.8), 0 0 20px rgba(236, 72, 153, 0.5), 0 0 30px rgba(217, 70, 239, 0.8);
+        }
+        .neon-text-gold {
+            text-shadow: 0 0 8px rgba(245, 158, 11, 0.8), 0 0 20px rgba(245, 158, 11, 0.5), 0 0 30px rgba(234, 179, 8, 0.8);
+        }
+        .neon-box-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.5), inset 0 0 15px rgba(6, 182, 212, 0.3);
+            border: 2px solid rgba(6, 182, 212, 0.8);
+        }
+        .neon-box-magenta {
+            box-shadow: 0 0 15px rgba(217, 70, 239, 0.5), inset 0 0 15px rgba(217, 70, 239, 0.3);
+            border: 2px solid rgba(217, 70, 239, 0.8);
+        }
+        .neon-btn {
+            transition: all 0.25s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .neon-btn:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 0 20px currentColor;
+        }
+        .neon-btn:active {
+            transform: translateY(1px) scale(0.98);
+        }
+
+        /* Moving Particles Background */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Glassmorphism Panel */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        /* Custom Scrollbar for Modal */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #06b6d4;
+            border-radius: 4px;
+        }
+
+        /* Pulse Animation */
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+        .animate-pulse-glow {
+            animation: pulse-glow 2s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative text-gray-100 overflow-hidden">
+
+    <!-- Moving Background Particles -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- TOP HEADER BAR -->
+    <header class="relative z-10 w-full px-4 py-3 glass-panel border-b border-cyan-500/30 flex flex-wrap justify-between items-center shadow-lg">
+        <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-coins text-yellow-400 text-2xl animate-bounce"></i>
+            <div>
+                <h1 class="text-xl md:text-2xl font-black font-orbitron tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-pink-500 to-yellow-400 neon-text-blue">
+                    RODA PENGGUNA BIJAK
+                </h1>
+                <p class="text-xs text-cyan-300 font-rajdhani hidden sm:block">AR HAND GESTURE CHALLENGE • BAHASA MELAYU TAHUN 5</p>
+            </div>
+        </div>
+
+        <!-- System Controls & Stats -->
+        <div class="flex items-center space-x-3 mt-2 sm:mt-0">
+            <!-- Questions Tracker Badge -->
+            <div class="glass-panel px-3 py-1.5 rounded-full border border-yellow-500/50 flex items-center space-x-2">
+                <i class="fa-solid fa-bullseye text-yellow-400"></i>
+                <span id="question-progress-text" class="text-xs md:text-sm font-bold font-orbitron text-yellow-300">0/6 TERKAPAI</span>
+            </div>
+
+            <!-- Audio Controls -->
+            <button id="bgm-toggle-btn" onclick="toggleMusic()" class="px-3 py-1.5 rounded-lg glass-panel hover:bg-slate-800 text-cyan-400 border border-cyan-500/40 text-xs font-bold transition flex items-center space-x-1">
+                <i id="bgm-icon" class="fa-solid fa-music"></i>
+                <span id="bgm-label" class="hidden md:inline">MUZIK</span>
+            </button>
+            <button id="sfx-toggle-btn" onclick="toggleSFX()" class="px-3 py-1.5 rounded-lg glass-panel hover:bg-slate-800 text-pink-400 border border-pink-500/40 text-xs font-bold transition flex items-center space-x-1">
+                <i id="sfx-icon" class="fa-solid fa-volume-high"></i>
+                <span id="sfx-label" class="hidden md:inline">KESAN BUNYI</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN GAME AREA -->
+    <main class="relative z-10 flex-1 flex flex-col md:flex-row items-center justify-around p-4 gap-4 max-w-7xl mx-auto w-full">
+
+        <!-- LEFT/TOP PANEL: WEBCAM & AR HAND GESTURE MONITOR -->
+        <div class="w-full md:w-80 flex flex-col items-center space-y-3">
+            <div class="relative w-64 h-48 sm:w-72 sm:h-52 glass-panel rounded-2xl overflow-hidden neon-box-cyan flex items-center justify-center">
+                <!-- Video Stream (Hidden CSS mirror) -->
+                <video id="webcam" class="absolute w-full h-full object-cover -scale-x-100 hidden" playsinline></video>
+                <!-- AR Canvas Overlay -->
+                <canvas id="ar-canvas" class="absolute w-full h-full object-cover -scale-x-100"></canvas>
+                
+                <!-- Status Badge Overlay -->
+                <div id="camera-placeholder" class="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-slate-900/90">
+                    <i class="fa-solid fa-camera-rotate text-3xl text-cyan-400 mb-2 animate-pulse"></i>
+                    <p id="cam-status-msg" class="text-xs text-gray-300">Kamera dimatikan atau memerlukan kebenaran HTTPS / Localhost.</p>
+                    <button onclick="startCamera()" class="mt-3 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold font-orbitron shadow-lg">
+                        AKTIFKAN KAMERA
+                    </button>
+                </div>
+
+                <!-- Live Gesture Indicator Overlay -->
+                <div class="absolute top-2 left-2 right-2 flex justify-between items-center pointer-events-none">
+                    <span id="gesture-badge" class="px-2 py-0.5 rounded-md text-[10px] font-orbitron font-bold bg-slate-900/80 text-yellow-400 border border-yellow-500/50">
+                        OFFLINE
+                    </span>
+                    <span id="fps-counter" class="text-[10px] font-mono text-cyan-300 bg-slate-900/80 px-1.5 py-0.5 rounded">
+                        -- FPS
+                    </span>
+                </div>
+            </div>
+
+            <!-- GESTURE GUIDE / STATUS CARD -->
+            <div class="w-full max-w-xs glass-panel p-3 rounded-xl border border-cyan-500/30 text-center">
+                <div class="text-xs font-bold text-cyan-400 font-orbitron mb-1" id="gesture-status-title">
+                    STATUS GESTURE
+                </div>
+                <div id="gesture-instruction" class="text-xs text-gray-300 font-rajdhani font-semibold min-h-[32px] flex items-center justify-center">
+                    Tunjukkan <span class="text-yellow-400 mx-1">TAPAK TANGAN</span> untuk mengaktifkan AR.
+                </div>
+                <!-- Mini Icons Visual Guide -->
+                <div class="grid grid-cols-3 gap-1 mt-2 pt-2 border-t border-slate-700/50 text-[10px]">
+                    <div id="guide-palm" class="p-1 rounded bg-slate-800/60 border border-transparent">
+                        <i class="fa-solid fa-hand text-pink-400 block text-sm"></i>
+                        Open Palm
+                    </div>
+                    <div id="guide-pinch" class="p-1 rounded bg-slate-800/60 border border-transparent">
+                        <i class="fa-solid fa-hand-back-fist text-yellow-400 block text-sm"></i>
+                        Pinch (Putar)
+                    </div>
+                    <div id="guide-stop" class="p-1 rounded bg-slate-800/60 border border-transparent">
+                        <i class="fa-solid fa-hand-paper text-cyan-400 block text-sm"></i>
+                        Palm (Henti)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTER PANEL: 3D-STYLE NEON WHEEL CONTAINER -->
+        <div class="flex-1 flex flex-col items-center justify-center relative w-full my-2">
+            
+            <!-- Wheel Container -->
+            <div class="relative flex items-center justify-center">
+                <!-- TOP FIXED POINTER (ARROW) -->
+                <div class="absolute -top-5 z-30 flex flex-col items-center">
+                    <div class="w-0 h-0 border-l-[18px] border-l-transparent border-r-[18px] border-r-transparent border-t-[32px] border-t-yellow-400 drop-shadow-[0_0_12px_rgba(250,204,21,0.9)]"></div>
+                    <div class="w-3 h-3 bg-white rounded-full -mt-2 shadow-lg shadow-yellow-300"></div>
+                </div>
+
+                <!-- CANVAS WHEEL -->
+                <div class="relative p-3 rounded-full bg-gradient-to-b from-cyan-500/20 via-pink-500/20 to-purple-600/20 neon-box-magenta">
+                    <canvas id="wheel-canvas" width="420" height="420" class="max-w-[300px] sm:max-w-[360px] md:max-w-[420px] max-h-[300px] sm:max-h-[360px] md:max-h-[420px] transition-transform duration-75"></canvas>
+                    
+                    <!-- Center Decorative Badge -->
+                    <div class="absolute inset-0 m-auto w-16 h-16 sm:w-20 sm:h-20 rounded-full glass-panel neon-box-cyan flex flex-col items-center justify-center pointer-events-none shadow-2xl z-20">
+                        <i class="fa-solid fa-coins text-yellow-400 text-xl sm:text-2xl animate-pulse"></i>
+                        <span class="text-[9px] font-orbitron font-black text-cyan-300">BIJAK</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MANUAL FALLBACK CONTROLS (ALWAYS ACCESSIBLE) -->
+            <div class="mt-6 flex flex-wrap justify-center gap-3 w-full max-w-md">
+                <button id="spin-btn" onclick="triggerSpin()" class="neon-btn flex-1 min-w-[140px] px-6 py-3 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-orbitron font-bold text-sm tracking-wide shadow-lg border border-pink-400/50 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-rotate text-yellow-300 text-lg"></i>
+                    <span>PUTAR RODA</span>
+                </button>
+                <button id="stop-btn" onclick="triggerStop()" disabled class="neon-btn px-5 py-3 rounded-xl bg-gradient-to-r from-cyan-700 to-blue-700 hover:from-cyan-600 hover:to-blue-600 text-white font-orbitron font-bold text-sm tracking-wide shadow-lg border border-cyan-400/50 flex items-center justify-center space-x-2 opacity-50 cursor-not-allowed">
+                    <i class="fa-solid fa-circle-stop text-red-400 text-lg"></i>
+                    <span>HENTIKAN</span>
+                </button>
+            </div>
+            <p class="text-[11px] text-gray-400 mt-2 text-center font-rajdhani">
+                Boleh diganti dengan <span class="text-cyan-300 font-semibold">Cubit Tangan (Pinch)</span> untuk putar atau klik butang di atas.
+            </p>
+        </div>
+
+    </main>
+
+    <!-- FOOTER / CREDIT -->
+    <footer class="relative z-10 w-full py-2 text-center text-[11px] text-gray-500 glass-panel border-t border-slate-800">
+        RODA PENGGUNA BIJAK &copy; Aktiviti Penutup PdP Bahasa Melayu Tahun 5 • Rekaan Interaktif AR
+    </footer>
+
+    <!-- QUESTION POPUP MODAL -->
+    <div id="question-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-panel w-full max-w-2xl rounded-2xl neon-box-cyan p-6 relative overflow-hidden flex flex-col justify-between max-h-[90vh]">
+            
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center border-b border-cyan-500/30 pb-3">
+                <div class="flex items-center space-x-2">
+                    <span id="modal-question-number" class="px-3 py-1 bg-gradient-to-r from-yellow-500 to-amber-600 text-slate-950 font-black font-orbitron rounded-md text-sm shadow-md">
+                        SOALAN 1
+                    </span>
+                    <span class="text-xs font-orbitron text-pink-400 tracking-wider">CABARAN ANDA!</span>
+                </div>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white text-xl p-1 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Question Body -->
+            <div class="my-6 space-y-4 overflow-y-auto pr-1">
+                <h2 id="modal-question-text" class="text-lg md:text-2xl font-bold text-cyan-200 leading-relaxed font-poppins">
+                    "Apakah amalan pengguna bijak yang akan kamu lakukan mulai hari ini?"
+                </h2>
+
+                <!-- Hidden Teacher Answer Box -->
+                <div id="answer-box" class="hidden mt-4 p-4 rounded-xl bg-slate-900/90 border border-yellow-500/50 text-yellow-200 text-sm md:text-base leading-relaxed shadow-inner">
+                    <div class="flex items-center space-x-2 font-bold font-orbitron text-yellow-400 text-xs mb-1">
+                        <i class="fa-solid fa-lightbulb"></i>
+                        <span>CADANGAN JAWAPAN GURU:</span>
+                    </div>
+                    <p id="modal-answer-text">Berjimat-cermat, mengutamakan keperluan dan mengelakkan pembaziran.</p>
+                </div>
+            </div>
+
+            <!-- Modal Footer Controls -->
+            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-cyan-500/30 pt-4">
+                <button id="toggle-answer-btn" onclick="toggleTeacherAnswer()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-yellow-300 border border-yellow-500/40 font-orbitron text-xs font-bold transition flex items-center space-x-2">
+                    <i class="fa-solid fa-eye"></i>
+                    <span id="answer-btn-label">PAPAR CADANGAN JAWAPAN</span>
+                </button>
+
+                <button onclick="nextQuestion()" class="neon-btn px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-orbitron font-bold text-xs md:text-sm tracking-wide shadow-lg border border-cyan-300/50 flex items-center space-x-2 ml-auto">
+                    <span>SELESAI / TERUSKAN</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GRAND VICTORY MODAL (AFTER ALL 6 QUESTIONS) -->
+    <div id="victory-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-lg hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-panel w-full max-w-lg rounded-3xl neon-box-magenta p-8 text-center relative overflow-hidden flex flex-col items-center">
+            
+            <div class="w-20 h-20 bg-yellow-400/20 rounded-full flex items-center justify-center mb-4 border border-yellow-400 shadow-xl">
+                <i class="fa-solid fa-trophy text-yellow-400 text-4xl animate-bounce"></i>
+            </div>
+
+            <h2 class="text-2xl md:text-3xl font-black font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-pink-400 to-cyan-300 neon-text-gold mb-2">
+                TAHNIAH, ANDA PENGGUNA BIJAK!
+            </h2>
+
+            <p class="text-sm text-gray-300 font-rajdhani font-semibold mb-6">
+                Syabas! Kamu telah berjaya menjawab dan menerokai kesemua 6 soalan pengurusan kewangan Bahasa Melayu Tahun 5!
+            </p>
+
+            <button onclick="resetGame()" class="neon-btn px-8 py-3 rounded-2xl bg-gradient-to-r from-yellow-500 via-pink-500 to-cyan-500 text-slate-950 font-black font-orbitron text-sm tracking-wider shadow-xl border border-white/40 flex items-center space-x-2">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>MAIN SEMULA PERMAINAN</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        /* ==========================================================================
+           1. DATA SOALAN PDP (BAHASA MELAYU TAHUN 5)
+           ========================================================================== */
+        const QUESTIONS_DATA = [
+            {
+                id: 1,
+                color: '#ec4899', // Hot Pink
+                question: "Apakah amalan pengguna bijak yang akan kamu lakukan mulai hari ini?",
+                answer: "Berjimat-cermat, mengutamakan keperluan dan mengelakkan pembaziran."
+            },
+            {
+                id: 2,
+                color: '#06b6d4', // Cyan
+                question: "Apakah yang akan kamu lakukan sebelum membeli sesuatu barang?",
+                answer: "Merancang pembelian, menyenaraikan barang yang diperlukan dan membandingkan harga."
+            },
+            {
+                id: 3,
+                color: '#a855f7', // Purple
+                question: "Apakah yang mungkin berlaku jika kita berbelanja tanpa berfikir?",
+                answer: "Wang cepat habis dan wang tidak mencukupi untuk membeli barang keperluan."
+            },
+            {
+                id: 4,
+                color: '#eab308', // Gold
+                question: "Mengapakah kita perlu menyimpan sebahagian wang untuk kegunaan pada masa hadapan?",
+                answer: "Untuk menghadapi kecemasan dan memenuhi keperluan pada masa hadapan."
+            },
+            {
+                id: 5,
+                color: '#3b82f6', // Electric Blue
+                question: "Bagaimanakah kamu boleh membantu keluarga mengelakkan pembaziran ketika membeli-belah?",
+                answer: "Membantu menyediakan senarai barang yang diperlukan, membandingkan harga dan mengelakkan pembelian yang tidak perlu."
+            },
+            {
+                id: 6,
+                color: '#f43f5e', // Magenta / Rose
+                question: "Apakah yang akan kamu lakukan jika wang yang kamu bawa tidak mencukupi untuk membeli barang yang kamu inginkan?",
+                answer: "Menangguhkan pembelian, menyimpan wang terlebih dahulu atau memilih barang yang lebih murah jika sesuai."
+            }
+        ];
+
+        let answeredQuestions = new Set();
+        let currentQuestionObj = null;
+
+        /* ==========================================================================
+           2. WEB AUDIO API SYNTHESIZER
+           ========================================================================== */
+        let audioCtx = null;
+        let isMutedBGM = false;
+        let isMutedSFX = false;
+        let bgmTimer = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playTone(freq, type, duration, vol = 0.1) {
+            if (isMutedSFX) return;
+            try {
+                initAudio();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                console.warn('Audio play error:', e);
+            }
+        }
+
+        function playSpinTickSFX() {
+            playTone(800 + Math.random() * 200, 'square', 0.05, 0.03);
+        }
+
+        function playWinFanfareSFX() {
+            if (isMutedSFX) return;
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            notes.forEach((freq, idx) => {
+                setTimeout(() => playTone(freq, 'triangle', 0.3, 0.15), idx * 120);
+            });
+        }
+
+        function playGestureDetectSFX() {
+            playTone(880, 'sine', 0.15, 0.08);
+        }
+
+        function toggleMusic() {
+            initAudio();
+            isMutedBGM = !isMutedBGM;
+            const bgmBtn = document.getElementById('bgm-toggle-btn');
+            const bgmIcon = document.getElementById('bgm-icon');
+            
+            if (isMutedBGM) {
+                bgmBtn.classList.add('opacity-50');
+                bgmIcon.className = "fa-solid fa-volume-xmark";
+                stopBGM();
+            } else {
+                bgmBtn.classList.remove('opacity-50');
+                bgmIcon.className = "fa-solid fa-music";
+                startBGM();
+            }
+        }
+
+        function toggleSFX() {
+            isMutedSFX = !isMutedSFX;
+            const sfxBtn = document.getElementById('sfx-toggle-btn');
+            const sfxIcon = document.getElementById('sfx-icon');
+            if (isMutedSFX) {
+                sfxBtn.classList.add('opacity-50');
+                sfxIcon.className = "fa-solid fa-volume-xmark";
+            } else {
+                sfxBtn.classList.remove('opacity-50');
+                sfxIcon.className = "fa-solid fa-volume-high";
+            }
+        }
+
+        function startBGM() {
+            if (isMutedBGM || bgmTimer) return;
+            let noteIdx = 0;
+            const melody = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63];
+            
+            bgmTimer = setInterval(() => {
+                if (isMutedBGM) return;
+                playTone(melody[noteIdx], 'sine', 0.4, 0.02);
+                noteIdx = (noteIdx + 1) % melody.length;
+            }, 600);
+        }
+
+        function stopBGM() {
+            if (bgmTimer) {
+                clearInterval(bgmTimer);
+                bgmTimer = null;
+            }
+        }
+
+        /* ==========================================================================
+           3. WHEEL CANVAS RENDERER & PHYSICS ENGINE
+           ========================================================================== */
+        const canvas = document.getElementById('wheel-canvas');
+        const ctx = canvas.getContext('2d');
+        const totalSegments = 6;
+        const segmentAngle = (2 * Math.PI) / totalSegments;
+        
+        let currentRotation = 0; // In Radians
+        let spinAngularVelocity = 0;
+        let isSpinning = false;
+        let lastTickSegment = -1;
+
+        function drawWheel() {
+            const width = canvas.width;
+            const height = canvas.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = width / 2 - 15;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Draw Outer Glowing Rim
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius + 8, 0, 2 * Math.PI);
+            ctx.fillStyle = '#0f172a';
+            ctx.shadowColor = '#06b6d4';
+            ctx.shadowBlur = 15;
+            ctx.fill();
+            ctx.restore();
+
+            // Draw Segments
+            for (let i = 0; i < totalSegments; i++) {
+                const startAngle = currentRotation + (i * segmentAngle);
+                const endAngle = startAngle + segmentAngle;
+                const questionData = QUESTIONS_DATA[i];
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.closePath();
+
+                // Segment Fill Gradient
+                const grad = ctx.createRadialGradient(centerX, centerY, 20, centerX, centerY, radius);
+                grad.addColorStop(0, '#1e293b');
+                grad.addColorStop(1, questionData.color);
+                ctx.fillStyle = grad;
+                ctx.fill();
+
+                // Segment Border
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Draw Text / Numbers on Wheel
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(startAngle + segmentAngle / 2);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 22px Orbitron';
+                ctx.shadowColor = '#000000';
+                ctx.shadowBlur = 6;
+                ctx.fillText(`SOALAN ${questionData.id}`, radius - 35, 8);
+
+                // Indicate if Question Already Solved
+                if (answeredQuestions.has(questionData.id)) {
+                    ctx.fillStyle = '#eab308';
+                    ctx.font = 'bold 16px FontAwesome';
+                    ctx.fillText(' \uf00c', radius - 15, 6);
+                }
+                ctx.restore();
+
+                ctx.restore();
+            }
+        }
+
+        function updateWheelPhysics() {
+            if (!isSpinning) return;
+
+            currentRotation += spinAngularVelocity;
+            currentRotation %= (2 * Math.PI);
+
+            // Fast and responsive deceleration
+            spinAngularVelocity *= 0.965;
+
+            // Audio Tick Sound on Segment Pass
+            const topPointerAngle = (3 * Math.PI / 2 - currentRotation + 2 * Math.PI) % (2 * Math.PI);
+            const currentSegmentIdx = Math.floor(topPointerAngle / segmentAngle) % totalSegments;
+            if (currentSegmentIdx !== lastTickSegment) {
+                playSpinTickSFX();
+                lastTickSegment = currentSegmentIdx;
+            }
+
+            // Quick stop condition
+            if (spinAngularVelocity < 0.005) {
+                isSpinning = false;
+                spinAngularVelocity = 0;
+                onWheelStopped();
+            }
+
+            drawWheel();
+            if (isSpinning) {
+                requestAnimationFrame(updateWheelPhysics);
+            }
+        }
+
+        function triggerSpin() {
+            if (isSpinning) return;
+            initAudio();
+            startBGM();
+
+            // Set initial fast spin speed (0.65 - 0.85 rad/frame)
+            spinAngularVelocity = 0.65 + Math.random() * 0.20;
+            isSpinning = true;
+
+            // Update UI Buttons
+            document.getElementById('spin-btn').disabled = true;
+            document.getElementById('spin-btn').classList.add('opacity-50');
+            document.getElementById('stop-btn').disabled = false;
+            document.getElementById('stop-btn').classList.remove('opacity-50', 'cursor-not-allowed');
+
+            updateWheelPhysics();
+        }
+
+        function triggerStop() {
+            if (!isSpinning) return;
+            // Quick brake: slow down instantly to stop within a fraction of a second
+            spinAngularVelocity = Math.min(spinAngularVelocity, 0.04);
+        }
+
+        function onWheelStopped() {
+            // Calculate exact segment aligned with top pointer (angle: 270 deg = 3*PI/2)
+            const normalizedRotation = (currentRotation % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            const topPointerAngle = (3 * Math.PI / 2 - normalizedRotation + 2 * Math.PI) % (2 * Math.PI);
+            const selectedIdx = Math.floor(topPointerAngle / segmentAngle) % totalSegments;
+
+            currentQuestionObj = QUESTIONS_DATA[selectedIdx];
+
+            // Sound & Visual Celebrations
+            playWinFanfareSFX();
+            confetti({
+                particleCount: 80,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+
+            // Update Manual Controls
+            document.getElementById('spin-btn').disabled = false;
+            document.getElementById('spin-btn').classList.remove('opacity-50');
+            document.getElementById('stop-btn').disabled = true;
+            document.getElementById('stop-btn').classList.add('opacity-50', 'cursor-not-allowed');
+
+            // Show Question Modal after brief delay
+            setTimeout(() => {
+                showQuestionModal(currentQuestionObj);
+            }, 600);
+        }
+
+        /* ==========================================================================
+           4. QUESTION MODAL & PROGRESS MANAGEMENT
+           ========================================================================== */
+        function showQuestionModal(qObj) {
+            document.getElementById('modal-question-number').innerText = `SOALAN ${qObj.id}`;
+            document.getElementById('modal-question-text').innerText = `"${qObj.question}"`;
+            document.getElementById('modal-answer-text').innerText = qObj.answer;
+
+            // Hide teacher answer by default
+            document.getElementById('answer-box').classList.add('hidden');
+            document.getElementById('answer-btn-label').innerText = "PAPAR CADANGAN JAWAPAN";
+
+            const modal = document.getElementById('question-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('question-modal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function toggleTeacherAnswer() {
+            const ansBox = document.getElementById('answer-box');
+            const label = document.getElementById('answer-btn-label');
+            if (ansBox.classList.contains('hidden')) {
+                ansBox.classList.remove('hidden');
+                label.innerText = "SEMBUNYIKAN JAWAPAN";
+                playTone(600, 'sine', 0.1, 0.05);
+            } else {
+                ansBox.classList.add('hidden');
+                label.innerText = "PAPAR CADANGAN JAWAPAN";
+            }
+        }
+
+        function nextQuestion() {
+            if (currentQuestionObj) {
+                answeredQuestions.add(currentQuestionObj.id);
+            }
+
+            // Update Progress Badge
+            document.getElementById('question-progress-text').innerText = `${answeredQuestions.size}/6 TERKAPAI`;
+            drawWheel();
+
+            closeModal();
+
+            // Check if all 6 questions solved
+            if (answeredQuestions.size >= totalSegments) {
+                setTimeout(() => {
+                    showVictoryModal();
+                }, 500);
+            }
+        }
+
+        function showVictoryModal() {
+            playWinFanfareSFX();
+            confetti({ particleCount: 150, spread: 100, origin: { y: 0.5 } });
+
+            const vicModal = document.getElementById('victory-modal');
+            vicModal.classList.remove('hidden');
+            setTimeout(() => vicModal.classList.remove('opacity-0'), 10);
+        }
+
+        function resetGame() {
+            answeredQuestions.clear();
+            document.getElementById('question-progress-text').innerText = `0/6 TERKAPAI`;
+            
+            const vicModal = document.getElementById('victory-modal');
+            vicModal.classList.add('opacity-0');
+            setTimeout(() => vicModal.classList.add('hidden'), 300);
+
+            drawWheel();
+        }
+
+        /* ==========================================================================
+           5. AR MEDIAPIPE HAND TRACKING & GESTURE RECOGNITION
+           ========================================================================== */
+        const videoElement = document.getElementById('webcam');
+        const arCanvas = document.getElementById('ar-canvas');
+        const arCtx = arCanvas.getContext('2d');
+        
+        let hands = null;
+        let camera = null;
+        let isCameraActive = false;
+        let pinchCooldown = false;
+        let lastFrameTime = performance.now();
+
+        function startCamera() {
+            initAudio();
+            document.getElementById('cam-status-msg').innerText = "Memuatkan MediaPipe AI Model...";
+
+            hands = new Hands({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+            });
+
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.65,
+                minTrackingConfidence: 0.65
+            });
+
+            hands.onResults(onHandResults);
+
+            camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await hands.send({ image: videoElement });
+                },
+                width: 320,
+                height: 240
+            });
+
+            camera.start().then(() => {
+                isCameraActive = true;
+                document.getElementById('camera-placeholder').classList.add('hidden');
+                document.getElementById('gesture-badge').innerText = "ONLINE";
+                document.getElementById('gesture-badge').className = "px-2 py-0.5 rounded-md text-[10px] font-orbitron font-bold bg-green-900/80 text-green-400 border border-green-500/50";
+            }).catch(err => {
+                console.error("Camera error:", err);
+                document.getElementById('cam-status-msg').innerText = "Gagal mengakses kamera. Kebenaran ditolak atau HTTPS diperlukan.";
+            });
+        }
+
+        function onHandResults(results) {
+            // FPS Calculation
+            const now = performance.now();
+            const fps = Math.round(1000 / (now - lastFrameTime));
+            lastFrameTime = now;
+            document.getElementById('fps-counter').innerText = `${fps} FPS`;
+
+            // Clear Overlay
+            arCtx.save();
+            arCtx.clearRect(0, 0, arCanvas.width, arCanvas.height);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+
+                // Render Glowing Neon Hand Skeleton
+                drawConnectors(arCtx, landmarks, HAND_CONNECTIONS, { color: '#06b6d4', lineWidth: 3 });
+                drawLandmarks(arCtx, landmarks, { color: '#ec4899', lineWidth: 1, radius: 4 });
+
+                // Detect Gesture Logic
+                processGestures(landmarks);
+            } else {
+                updateGestureUI("TIADA TANGAN", "Tunjukkan <span class='text-yellow-400 font-bold'>TAPAK TANGAN</span> di hadapan kamera.");
+            }
+            arCtx.restore();
+        }
+
+        function processGestures(landmarks) {
+            const thumbTip = landmarks[4];
+            const indexTip = landmarks[8];
+            const wrist = landmarks[0];
+            const middleTip = landmarks[12];
+            const ringTip = landmarks[16];
+            const pinkyTip = landmarks[20];
+
+            const pinchDist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
+            const palmSize = Math.hypot(middleTip.x - wrist.x, middleTip.y - wrist.y);
+            const normalizedPinch = pinchDist / (palmSize || 1);
+
+            const isOpenPalm = indexTip.y < landmarks[6].y && 
+                               middleTip.y < landmarks[10].y && 
+                               ringTip.y < landmarks[14].y && 
+                               pinkyTip.y < landmarks[18].y;
+
+            // Pinch Gesture -> Spin Wheel
+            if (normalizedPinch < 0.28) {
+                updateGestureUI("PINCH (CUBIT)", "<span class='text-pink-400 font-bold'>MEMUTARKAN RODA!</span>");
+                highlightGuide('guide-pinch');
+
+                if (!isSpinning && !pinchCooldown) {
+                    playGestureDetectSFX();
+                    triggerSpin();
+                    pinchCooldown = true;
+                    setTimeout(() => { pinchCooldown = false; }, 2500);
+                }
+            }
+            // Open Palm Gesture -> Stop Wheel / Ready
+            else if (isOpenPalm) {
+                highlightGuide('guide-palm');
+                if (isSpinning) {
+                    updateGestureUI("PALM (HENTI)", "<span class='text-red-400 font-bold'>MENGHENTIKAN RODA!</span>");
+                    highlightGuide('guide-stop');
+                    triggerStop();
+                } else {
+                    updateGestureUI("TANGAN DIKESAN!", "Cubit jari <span class='text-yellow-300 font-bold'>(Pinch)</span> untuk memutar roda.");
+                }
+            } else {
+                updateGestureUI("BERSAEDIA", "Sediakan pergerakan tangan anda.");
+            }
+        }
+
+        function updateGestureUI(title, msg) {
+            document.getElementById('gesture-status-title').innerText = title;
+            document.getElementById('gesture-instruction').innerHTML = msg;
+        }
+
+        function highlightGuide(guideId) {
+            ['guide-palm', 'guide-pinch', 'guide-stop'].forEach(id => {
+                const el = document.getElementById(id);
+                if (id === guideId) {
+                    el.classList.add('border-cyan-400', 'bg-cyan-900/40');
+                } else {
+                    el.classList.remove('border-cyan-400', 'bg-cyan-900/40');
+                }
+            });
+        }
+
+        /* ==========================================================================
+           6. MOVING BACKGROUND PARTICLES (STARS & NEON DUST)
+           ========================================================================== */
+        const particleCanvas = document.getElementById('particle-canvas');
+        const pCtx = particleCanvas.getContext('2d');
+        let particles = [];
+
+        function resizeParticleCanvas() {
+            particleCanvas.width = window.innerWidth;
+            particleCanvas.height = window.innerHeight;
+        }
+
+        function initParticles() {
+            resizeParticleCanvas();
+            particles = [];
+            for (let i = 0; i < 65; i++) {
+                particles.push({
+                    x: Math.random() * particleCanvas.width,
+                    y: Math.random() * particleCanvas.height,
+                    radius: Math.random() * 2 + 1,
+                    color: ['#06b6d4', '#ec4899', '#eab308', '#a855f7'][Math.floor(Math.random() * 4)],
+                    vx: (Math.random() - 0.5) * 0.4,
+                    vy: (Math.random() - 0.5) * 0.4,
+                    alpha: Math.random() * 0.8 + 0.2
+                });
+            }
+        }
+
+        function animateParticles() {
+            pCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.x < 0) p.x = particleCanvas.width;
+                if (p.x > particleCanvas.width) p.x = 0;
+                if (p.y < 0) p.y = particleCanvas.height;
+                if (p.y > particleCanvas.height) p.y = 0;
+
+                pCtx.save();
+                pCtx.globalAlpha = p.alpha;
+                pCtx.beginPath();
+                pCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                pCtx.fillStyle = p.color;
+                pCtx.shadowColor = p.color;
+                pCtx.shadowBlur = 8;
+                pCtx.fill();
+                pCtx.restore();
+            });
+            requestAnimationFrame(animateParticles);
+        }
+
+        /* ==========================================================================
+           7. INITIALIZATION ON WINDOW LOAD
+           ========================================================================== */
+        window.addEventListener('resize', () => {
+            resizeParticleCanvas();
+        });
+
+        window.onload = function() {
+            initParticles();
+            animateParticles();
+            drawWheel();
+
+            arCanvas.width = 320;
+            arCanvas.height = 240;
+        };
+    </script>
+</body>
+</html>
